@@ -1,35 +1,84 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Routes, Route } from "react-router-dom";
-import { AppProvider } from "./context/AppContext";
 import Navbar from "./components/Navbar";
-import Footer from "./components/Footer";
-import Home from "./pages/Home";
+import Hero from "./components/Hero";
+import Content from "./components/Content";
 import NewsDetails from "./pages/NewsDetails";
-import Bookmarks from "./pages/Bookmarks";
 
 export default function App() {
+  const [news, setNews] = useState([]);
   const [query, setQuery] = useState("latest");
-  const [activeCategory, setActiveCategory] = useState("Latest");
-  const [articles, setArticles] = useState([]); // lifted up so Navbar can pass to drawer
+  const [loading, setLoading] = useState(false);
+
+  // 🔥 Fetch news whenever query changes
+  useEffect(() => {
+    fetchNews();
+  }, [query]);
+
+  const fetchNews = async () => {
+    try {
+      setLoading(true);
+
+      const res = await fetch(`/api/news?q=${query}`);
+
+      // ✅ ADD THIS (error handling)
+      if (!res.ok) {
+        throw new Error("Failed to fetch news");
+      }
+
+      const data = await res.json();
+
+      console.log(data); // debug
+
+      setNews(data.articles || []);
+
+    } catch (error) {
+      console.error("Error fetching news:", error);
+
+      // ✅ ADD THIS (fallback)
+      setNews([]);
+
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <AppProvider>
-      <div className="min-h-screen flex flex-col" style={{ backgroundColor: "var(--color-bg)" }}>
-        <Navbar
-          setQuery={setQuery}
-          activeCategory={activeCategory}
-          setActiveCategory={setActiveCategory}
-          articles={articles}
+    <div className="bg-gray-50 dark:bg-gray-800 text-black dark:text-white min-h-screen">
+
+      {/* NAVBAR */}
+      <Navbar setQuery={setQuery} />
+
+      <Routes>
+
+        {/* HOME PAGE */}
+        <Route
+          path="/"
+          element={
+            <>
+              {loading ? (
+                <p className="text-center mt-10 text-lg">
+                  Loading news...
+                </p>
+              ) : news.length === 0 ? (
+                <p className="text-center mt-10 text-gray-500">
+                  No news found 😕
+                </p>
+              ) : (
+                <>
+                  <Hero news={news} />
+                  <Content news={news} />
+                </>
+              )}
+            </>
+          }
         />
-        <div className="flex-1">
-          <Routes>
-            <Route path="/" element={<Home query={query} onArticlesLoaded={setArticles} />} />
-            <Route path="/news" element={<NewsDetails />} />
-            <Route path="/bookmarks" element={<Bookmarks />} />
-          </Routes>
-        </div>
-        <Footer />
-      </div>
-    </AppProvider>
+
+        {/* DETAILS PAGE */}
+        <Route path="/news" element={<NewsDetails />} />
+
+      </Routes>
+
+    </div>
   );
 }
